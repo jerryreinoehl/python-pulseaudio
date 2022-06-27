@@ -753,7 +753,7 @@ class PulseAudio():
 
         try:
             self._set_cvolume(vol, cvolume, base_volume)
-        except (TypeError, ValueError) as e:
+        except (TypeError, ValueError):
             pa_threaded_mainloop_unlock(self._mainloop)
             raise
 
