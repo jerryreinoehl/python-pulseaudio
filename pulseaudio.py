@@ -634,17 +634,6 @@ class PulseAudio():
         if eol:
             return
 
-        s = create_string_buffer(320)
-        pa_cvolume_snprint(s, len(s), sink_info.contents.volume)
-        channels = int(sink_info.contents.volume.channels)
-        values = list(sink_info.contents.volume.values)[:channels]
-        base_volume = int(sink_info.contents.base_volume)
-
-        for i, value in enumerate(values):
-            values[i] = value / base_volume
-
-        mute = bool(sink_info.contents.mute)
-
         for cb in self._subscribe_cbs:
             cb(SinkInfo.from_pa_sink_info(sink_info))
 
