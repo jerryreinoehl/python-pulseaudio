@@ -560,7 +560,7 @@ class PulseAudio():
         )
 
         pa_threaded_mainloop_lock(self._mainloop)
-        r = pa_context_connect(self._context, None, PA_CONTEXT_NOFLAGS, None)
+        pa_context_connect(self._context, None, PA_CONTEXT_NOFLAGS, None)
         pa_threaded_mainloop_wait(self._mainloop)
         pa_threaded_mainloop_unlock(self._mainloop)
 
