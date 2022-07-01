@@ -338,6 +338,11 @@ pa_cvolume_inc.restype = POINTER(PA_CVOLUME)
 pa_cvolume_inc.argtypes = [POINTER(PA_CVOLUME), PA_VOLUME_T]
 
 
+pa_cvolume_inc_clamp = libpulse.pa_cvolume_inc_clamp
+pa_cvolume_inc_clamp.restype = POINTER(PA_CVOLUME)
+pa_cvolume_inc_clamp.argtypes = [POINTER(PA_CVOLUME), PA_VOLUME_T, PA_VOLUME_T]
+
+
 pa_cvolume_snprint = libpulse.pa_cvolume_snprint
 pa_cvolume_snprint.restype = c_char_p
 pa_cvolume_snprint.argtypes = [c_char_p, c_uint, POINTER(PA_CVOLUME)]
@@ -517,7 +522,7 @@ class SinkInfo():
 
 
 class PulseAudio():
-    def __init__(self, default_sink=None, client_name=None):
+    def __init__(self, default_sink=None, client_name=None, max_vol=1.5):
         if default_sink != None:
            default_sink = default_sink.encode()
 
@@ -527,6 +532,7 @@ class PulseAudio():
             client_name = sys.argv[0].encode()
 
         self._default_sink = default_sink
+        self._max_vol = max_vol
         self._sink_info = None
         self._subscribe_cbs = []
 
@@ -730,8 +736,10 @@ class PulseAudio():
             new_vol = vol
         elif isinstance(vol, str):
             if vol.startswith("+") and vol.endswith("%"):
-                pa_cvolume_inc(
-                    byref(cvolume), int(base * float(vol[1:-1])/100)
+                pa_cvolume_inc_clamp(
+                    byref(cvolume),
+                    int(base * float(vol[1:-1])/100),
+                    int(base * self._max_vol),
                 )
                 return
             elif vol.startswith("-") and vol.endswith("%"):
@@ -749,7 +757,9 @@ class PulseAudio():
         else:
             raise TypeError("Volume unsupported type: %s" % type(vol))
 
-        pa_cvolume_set(byref(cvolume), cvolume.channels, new_vol)
+        pa_cvolume_set(
+            byref(cvolume), cvolume.channels, self._clamp(new_vol, base)
+        )
 
     def _set_cvolume_list(self, vols, cvolume, base):
         for i, vol in enumerate(vols):
@@ -768,6 +778,14 @@ class PulseAudio():
                     raise ValueError("Unable to determine volume: %s" % vol)
             else:
                 raise TypeError("Volume unsupported type: %s" % type(vol))
+
+            cvolume.values[i] = self._clamp(cvolume.values[i], base)
+
+    def _clamp(self, vol, base):
+        if vol / base > self._max_vol:
+            return int(base * self._max_vol)
+        else:
+            return vol
 
     def get_sink_mute(self, sink: str = None):
         """Returns if the given sink, or the default sink if not specificed, is
