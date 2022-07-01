@@ -568,6 +568,15 @@ class PulseAudio():
         pa_threaded_mainloop_wait(self._mainloop)
         pa_threaded_mainloop_unlock(self._mainloop)
 
+    def _notify_cb(self, context, userdata):
+        state = pa_context_get_state(context)
+
+        if state == PA_CONTEXT_READY:
+            pa_threaded_mainloop_signal(self._mainloop, 0)
+        elif state == PA_CONTEXT_FAILED:
+            # XXX Raise an error.
+            pa_threaded_mainloop_signal(self._mainloop, 0)
+
     def _get_server_info(self):
         pa_threaded_mainloop_lock(self._mainloop)
 
@@ -603,33 +612,6 @@ class PulseAudio():
 
         pa_threaded_mainloop_unlock(self._mainloop)
 
-    def _notify_cb(self, context, userdata):
-        state = pa_context_get_state(context)
-
-        if state == PA_CONTEXT_READY:
-            pa_threaded_mainloop_signal(self._mainloop, 0)
-        elif state == PA_CONTEXT_FAILED:
-            # XXX Raise an error.
-            pa_threaded_mainloop_signal(self._mainloop, 0)
-
-    def _success_cb(self, context, success, userdata):
-        # check success and raise error
-        pa_threaded_mainloop_signal(self._mainloop, 0)
-
-    def _server_info_cb(self, context, server_info, userdata):
-        if self._default_sink == None:
-            self._default_sink = server_info.contents.default_sink_name
-
-        pa_threaded_mainloop_signal(self._mainloop, 0)
-
-    def _sink_info_cb(self, context, sink_info, eol, userdata):
-        if eol:
-            return
-
-        self._sink_info = sink_info
-
-        pa_threaded_mainloop_signal(self._mainloop, 1)
-
     def _subscribe_cb(self, context, event_type, index, userdata):
         """Handles new sink events."""
         op = pa_context_get_sink_info_by_name(
@@ -646,6 +628,16 @@ class PulseAudio():
         for cb in self._subscribe_cbs:
             cb(SinkInfo.from_pa_sink_info(sink_info))
 
+    def _success_cb(self, context, success, userdata):
+        # check success and raise error
+        pa_threaded_mainloop_signal(self._mainloop, 0)
+
+    def _server_info_cb(self, context, server_info, userdata):
+        if self._default_sink == None:
+            self._default_sink = server_info.contents.default_sink_name
+
+        pa_threaded_mainloop_signal(self._mainloop, 0)
+
     def _get_sink_info(self, sink):
         self._sink_info = None
 
@@ -657,6 +649,14 @@ class PulseAudio():
             pa_threaded_mainloop_wait(self._mainloop)
 
         pa_operation_unref(op)
+
+    def _sink_info_cb(self, context, sink_info, eol, userdata):
+        if eol:
+            return
+
+        self._sink_info = sink_info
+
+        pa_threaded_mainloop_signal(self._mainloop, 1)
 
     @property
     def default_sink(self):
@@ -680,6 +680,38 @@ class PulseAudio():
 
         op = pa_context_set_sink_mute_by_name(
             self._context, sink, mute, self._success_cb, None
+        )
+
+        while pa_operation_get_state(op) == PA_OPERATION_RUNNING:
+            pa_threaded_mainloop_wait(self._mainloop)
+
+        pa_operation_unref(op)
+
+        pa_threaded_mainloop_unlock(self._mainloop)
+
+    def set_sink_volume(self, vol, sink: str = None):
+        """Sets the volume of the given sink, or the default sink if not
+        specified.
+        """
+        sink = self._default_sink if sink == None else sink.encode()
+
+        pa_threaded_mainloop_lock(self._mainloop)
+
+        self._get_sink_info(sink)
+
+        cvolume = self._sink_info.contents.volume
+        base_volume = self._sink_info.contents.base_volume
+
+        pa_threaded_mainloop_accept(self._mainloop)
+
+        try:
+            self._set_cvolume(vol, cvolume, base_volume)
+        except (TypeError, ValueError):
+            pa_threaded_mainloop_unlock(self._mainloop)
+            raise
+
+        op = pa_context_set_sink_volume_by_name(
+            self._context, sink, byref(cvolume), self._success_cb, None
         )
 
         while pa_operation_get_state(op) == PA_OPERATION_RUNNING:
@@ -736,38 +768,6 @@ class PulseAudio():
                     raise ValueError("Unable to determine volume: %s" % vol)
             else:
                 raise TypeError("Volume unsupported type: %s" % type(vol))
-
-    def set_sink_volume(self, vol, sink: str = None):
-        """Sets the volume of the given sink, or the default sink if not
-        specified.
-        """
-        sink = self._default_sink if sink == None else sink.encode()
-
-        pa_threaded_mainloop_lock(self._mainloop)
-
-        self._get_sink_info(sink)
-
-        cvolume = self._sink_info.contents.volume
-        base_volume = self._sink_info.contents.base_volume
-
-        pa_threaded_mainloop_accept(self._mainloop)
-
-        try:
-            self._set_cvolume(vol, cvolume, base_volume)
-        except (TypeError, ValueError):
-            pa_threaded_mainloop_unlock(self._mainloop)
-            raise
-
-        op = pa_context_set_sink_volume_by_name(
-            self._context, sink, byref(cvolume), self._success_cb, None
-        )
-
-        while pa_operation_get_state(op) == PA_OPERATION_RUNNING:
-            pa_threaded_mainloop_wait(self._mainloop)
-
-        pa_operation_unref(op)
-
-        pa_threaded_mainloop_unlock(self._mainloop)
 
     def get_sink_mute(self, sink: str = None):
         """Returns if the given sink, or the default sink if not specificed, is
