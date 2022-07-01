@@ -493,10 +493,12 @@ class SinkInfo():
 
     @property
     def volume_avg(self):
+        """Returns the average volume of all the channels."""
         return sum(self.volume) / len(self.volume)
 
     @classmethod
     def from_pa_sink_info(cls, pa_sink_info: PA_SINK_INFO):
+        """Creates and returns a `SinkInfo` from a `PA_SINK_INFO` object."""
         name = pa_sink_info.contents.name.decode()
         index = pa_sink_info.contents.index
         description = pa_sink_info.contents.description.decode()
@@ -548,11 +550,13 @@ class PulseAudio():
         pa_context_disconnect(self._context)
 
     def _start(self):
+        """Starts the mainloop."""
         pa_threaded_mainloop_lock(self._mainloop)
         pa_threaded_mainloop_start(self._mainloop)
         pa_threaded_mainloop_unlock(self._mainloop)
 
     def _connect(self):
+        """Connects to the PulseAudio server."""
         pa_context_set_state_callback(
             self._context,
             self._notify_cb,
@@ -579,6 +583,9 @@ class PulseAudio():
         pa_threaded_mainloop_unlock(self._mainloop)
 
     def _subscribe(self):
+        """Subscribes to PulseAudio sink events. Events are handled by
+        `_subscribe_cb`.
+        """
         pa_context_set_subscribe_callback(
             self._context, self._subscribe_cb, None
         )
@@ -624,6 +631,7 @@ class PulseAudio():
         pa_threaded_mainloop_signal(self._mainloop, 1)
 
     def _subscribe_cb(self, context, event_type, index, userdata):
+        """Handles new sink events."""
         op = pa_context_get_sink_info_by_name(
             self._context, self._default_sink, self._notify_all, None
         )
@@ -631,6 +639,7 @@ class PulseAudio():
         pa_operation_unref(op)
 
     def _notify_all(self, context, sink_info, eol, userdata):
+        """Notifies all callbacks in `_subscribe_cbs`."""
         if eol:
             return
 
@@ -654,8 +663,8 @@ class PulseAudio():
         return self._default_sink.decode()
 
     def set_sink_mute(self, mute: bool = None, sink: str = None):
-        """Mutes or unmutes the sink with name `sink`. If `sink` is `None` the
-        default sink will be muted. If `mute` is `None` then toggles the mute.
+        """Mutes or unmutes the given sink, or the default sink if not
+        specified. If `mute` is `None` then toggles the mute.
         """
         sink = self._default_sink if sink == None else sink.encode()
 
@@ -728,7 +737,10 @@ class PulseAudio():
             else:
                 raise TypeError("Volume unsupported type: %s" % type(vol))
 
-    def set_sink_volume(self, vol: float, sink: str = None):
+    def set_sink_volume(self, vol, sink: str = None):
+        """Sets the volume of the given sink, or the default sink if not
+        specified.
+        """
         sink = self._default_sink if sink == None else sink.encode()
 
         pa_threaded_mainloop_lock(self._mainloop)
@@ -758,6 +770,9 @@ class PulseAudio():
         pa_threaded_mainloop_unlock(self._mainloop)
 
     def get_sink_mute(self, sink: str = None):
+        """Returns if the given sink, or the default sink if not specificed, is
+        muted.
+        """
         sink = self._default_sink if sink == None else sink.encode()
 
         pa_threaded_mainloop_lock(self._mainloop)
@@ -772,6 +787,9 @@ class PulseAudio():
         return bool(mute)
 
     def get_sink_volume(self, sink: str = None):
+        """Returns the volume of the given sink, or the default sink if not
+        specified.
+        """
         sink = self._default_sink if sink == None else sink.encode()
 
         pa_threaded_mainloop_lock(self._mainloop)
