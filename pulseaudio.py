@@ -845,3 +845,4 @@ class PulseAudio():
 
     def subscribe(self, cb):
         self._subscribe_cbs.append(cb)
+        return cb
