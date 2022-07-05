@@ -826,5 +826,22 @@ class PulseAudio():
 
         return values
 
+    def get_sink_info(self, sink: str = None):
+        """Return the sink info of the given sink, or the default sink if not
+        specified.
+        """
+        sink = self._default_sink if sink == None else sink.encode()
+
+        pa_threaded_mainloop_lock(self._mainloop)
+
+        self._get_sink_info(sink)
+
+        sink_info = SinkInfo.from_pa_sink_info(self._sink_info)
+
+        pa_threaded_mainloop_accept(self._mainloop)
+        pa_threaded_mainloop_unlock(self._mainloop)
+
+        return sink_info
+
     def subscribe(self, cb):
         self._subscribe_cbs.append(cb)
