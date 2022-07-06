@@ -504,14 +504,14 @@ class SinkInfo():
     @classmethod
     def from_pa_sink_info(cls, pa_sink_info: PA_SINK_INFO):
         """Creates and returns a `SinkInfo` from a `PA_SINK_INFO` object."""
-        name = pa_sink_info.contents.name.decode()
-        index = pa_sink_info.contents.index
-        description = pa_sink_info.contents.description.decode()
-        mute = bool(pa_sink_info.contents.mute)
+        name = pa_sink_info.name.decode()
+        index = pa_sink_info.index
+        description = pa_sink_info.description.decode()
+        mute = bool(pa_sink_info.mute)
 
-        channels = int(pa_sink_info.contents.volume.channels)
-        values = list(pa_sink_info.contents.volume.values[:channels])
-        base_volume = pa_sink_info.contents.base_volume
+        channels = int(pa_sink_info.volume.channels)
+        values = list(pa_sink_info.volume.values[:channels])
+        base_volume = pa_sink_info.base_volume
 
         for i, value in enumerate(values):
             values[i] = value / base_volume
@@ -632,7 +632,7 @@ class PulseAudio():
             return
 
         for cb in self._subscribe_cbs:
-            cb(SinkInfo.from_pa_sink_info(sink_info))
+            cb(SinkInfo.from_pa_sink_info(sink_info.contents))
 
     def _success_cb(self, context, success, userdata):
         # check success and raise error
@@ -836,7 +836,7 @@ class PulseAudio():
 
         self._get_sink_info(sink)
 
-        sink_info = SinkInfo.from_pa_sink_info(self._sink_info)
+        sink_info = SinkInfo.from_pa_sink_info(self._sink_info.contents)
 
         pa_threaded_mainloop_accept(self._mainloop)
         pa_threaded_mainloop_unlock(self._mainloop)
