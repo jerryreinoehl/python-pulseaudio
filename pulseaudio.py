@@ -883,6 +883,7 @@ class PulseAudio():
         return sink_info
 
     def get_server_info(self):
+        """Returns information about the connected server."""
         pa_threaded_mainloop_lock(self._mainloop)
 
         self._get_server_info()
