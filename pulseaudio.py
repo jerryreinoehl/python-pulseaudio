@@ -79,6 +79,14 @@ PA_SUBSCRIPTION_EVENT_REMOVE = 0x20
 PA_SUBSCRIPTION_EVENT_TYPE_MASK = 0x30
 
 
+# enum pa_sink_state
+PA_SINK_STATE_T = c_int
+PA_SINK_INVALID_STATE = -1
+PA_SINK_RUNNING = 0
+PA_SINK_IDLE = 1
+PA_SINK_SUSPENDED = 2
+
+
 PA_USEC_T = c_uint64
 
 
@@ -489,12 +497,13 @@ pa_operation_unref.argtypes = [POINTER(PA_OPERATION)]
 
 
 class SinkInfo():
-    def __init__(self, name, index, description, mute, volume):
+    def __init__(self, name, index, description, mute, volume, state):
         self.name = name
         self.index = index
         self.description = description
         self.mute = mute
         self.volume = volume
+        self.state = state
 
     @property
     def volume_avg(self):
@@ -508,6 +517,7 @@ class SinkInfo():
         index = pa_sink_info.index
         description = pa_sink_info.description.decode()
         mute = bool(pa_sink_info.mute)
+        state = pa_sink_info.state
 
         channels = int(pa_sink_info.volume.channels)
         values = list(pa_sink_info.volume.values[:channels])
@@ -518,7 +528,7 @@ class SinkInfo():
 
         volume = values
 
-        return SinkInfo(name, index, description, mute, volume)
+        return SinkInfo(name, index, description, mute, volume, state)
 
 
 class ServerInfo():
