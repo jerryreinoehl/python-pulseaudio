@@ -521,19 +521,48 @@ class SinkInfo():
         return SinkInfo(name, index, description, mute, volume)
 
 
+class ServerInfo():
+    def __init__(
+        self,
+        user_name,
+        host_name,
+        server_version,
+        server_name,
+        default_sink_name,
+        default_source_name,
+        cookie,
+    ):
+        self.user_name = user_name
+        self.host_name = host_name
+        self.server_version = server_version
+        self.server_name = server_name
+        self.default_sink_name = default_sink_name
+        self.default_source_name = default_source_name
+        self.cookie = cookie
+
+    @classmethod
+    def from_pa_server_info(cls, pa_server_info: PA_SERVER_INFO):
+        return ServerInfo(
+            pa_server_info.user_name.decode(),
+            pa_server_info.host_name.decode(),
+            pa_server_info.server_version.decode(),
+            pa_server_info.server_name.decode(),
+            pa_server_info.default_sink_name.decode(),
+            pa_server_info.default_source_name.decode(),
+            int(pa_server_info.cookie),
+        )
+
+
 class PulseAudio():
     def __init__(self, default_sink=None, client_name=None, max_vol=1.5):
-        if default_sink != None:
-           default_sink = default_sink.encode()
-
         if client_name != None:
             client_name = client_name.encode()
         else:
             client_name = sys.argv[0].encode()
 
-        self._default_sink = default_sink
         self._max_vol = max_vol
         self._sink_info = None
+        self._server_info = None
         self._subscribe_cbs = []
 
         self._server_info_cb = PA_SERVER_INFO_CB_T(self._server_info_cb)
@@ -549,8 +578,12 @@ class PulseAudio():
 
         self._start()
         self._connect()
-        self._get_server_info()
         self._subscribe()
+
+        if default_sink == None:
+            self._set_default_sink()
+        else:
+            self._default_sink = default_sink.encode()
 
     def __del__(self):
         pa_context_disconnect(self._context)
@@ -582,20 +615,6 @@ class PulseAudio():
         elif state == PA_CONTEXT_FAILED:
             # XXX Raise an error.
             pa_threaded_mainloop_signal(self._mainloop, 0)
-
-    def _get_server_info(self):
-        pa_threaded_mainloop_lock(self._mainloop)
-
-        op = pa_context_get_server_info(
-            self._context, self._server_info_cb, None
-        )
-
-        while pa_operation_get_state(op) == PA_OPERATION_RUNNING:
-            pa_threaded_mainloop_wait(self._mainloop)
-
-        pa_operation_unref(op)
-
-        pa_threaded_mainloop_unlock(self._mainloop)
 
     def _subscribe(self):
         """Subscribes to PulseAudio sink events. Events are handled by
@@ -638,11 +657,31 @@ class PulseAudio():
         # check success and raise error
         pa_threaded_mainloop_signal(self._mainloop, 0)
 
-    def _server_info_cb(self, context, server_info, userdata):
-        if self._default_sink == None:
-            self._default_sink = server_info.contents.default_sink_name
+    def _get_server_info(self):
+        self._server_info = None
 
-        pa_threaded_mainloop_signal(self._mainloop, 0)
+        op = pa_context_get_server_info(
+            self._context, self._server_info_cb, None
+        )
+
+        while self._server_info == None:
+            pa_threaded_mainloop_wait(self._mainloop)
+
+        pa_operation_unref(op)
+
+    def _server_info_cb(self, context, server_info, userdata):
+        self._server_info = server_info
+        pa_threaded_mainloop_signal(self._mainloop, 1)
+
+    def _set_default_sink(self):
+        pa_threaded_mainloop_lock(self._mainloop)
+
+        self._get_server_info()
+
+        self._default_sink = self._server_info.contents.default_sink_name
+
+        pa_threaded_mainloop_accept(self._mainloop)
+        pa_threaded_mainloop_unlock(self._mainloop)
 
     def _get_sink_info(self, sink):
         self._sink_info = None
@@ -842,6 +881,18 @@ class PulseAudio():
         pa_threaded_mainloop_unlock(self._mainloop)
 
         return sink_info
+
+    def get_server_info(self):
+        pa_threaded_mainloop_lock(self._mainloop)
+
+        self._get_server_info()
+
+        server_info = ServerInfo.from_pa_server_info(self._server_info.contents)
+
+        pa_threaded_mainloop_accept(self._mainloop)
+        pa_threaded_mainloop_unlock(self._mainloop)
+
+        return server_info
 
     def subscribe(self, cb):
         self._subscribe_cbs.append(cb)
