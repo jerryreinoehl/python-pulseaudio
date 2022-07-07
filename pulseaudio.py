@@ -409,6 +409,13 @@ pa_context_set_sink_mute_by_name.argtypes = [
 ]
 
 
+pa_context_suspend_sink_by_name = libpulse.pa_context_suspend_sink_by_name
+pa_context_suspend_sink_by_name.restype = POINTER(PA_OPERATION)
+pa_context_suspend_sink_by_name.argtypes = [
+    POINTER(PA_CONTEXT), c_char_p, c_int, PA_CONTEXT_SUCCESS_CB_T, c_void_p
+]
+
+
 pa_context_get_sink_info_by_index = libpulse.pa_context_get_sink_info_by_index
 pa_context_get_sink_info_by_index.restype = POINTER(PA_OPERATION)
 pa_context_get_sink_info_by_index.argtypes = [
@@ -809,6 +816,33 @@ class PulseAudio():
         pa_cvolume_set(
             byref(cvolume), cvolume.channels, self._clamp(new_vol, base)
         )
+
+    def suspend_sink(self, suspend: bool = None, sink: str = None):
+        """Suspends or resumes the given sink, or the default sink if not
+        specified. If `suspend` is `None` then the sink if resumed if the
+        current sink state is `PA_SINK_SUSPENDED` and suspended otherwise.
+        """
+        sink = self._default_sink if sink == None else sink.encode()
+
+        pa_threaded_mainloop_lock(self._mainloop)
+
+        if suspend == None:
+            self._get_sink_info(sink)
+
+            sink_state = self._sink_info.contents.state
+            suspend = False if sink_state == PA_SINK_SUSPENDED else True
+
+            pa_threaded_mainloop_accept(self._mainloop)
+
+        op = pa_context_suspend_sink_by_name(
+            self._context, sink, suspend, self._success_cb, None
+        )
+
+        while pa_operation_get_state(op) == PA_OPERATION_RUNNING:
+            pa_threaded_mainloop_wait(self._mainloop)
+
+        pa_operation_unref(op)
+        pa_threaded_mainloop_unlock(self._mainloop)
 
     def _set_cvolume_list(self, vols, cvolume, base):
         for i, vol in enumerate(vols):
