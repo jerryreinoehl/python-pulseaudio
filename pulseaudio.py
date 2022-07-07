@@ -520,22 +520,21 @@ class SinkInfo():
     @classmethod
     def from_pa_sink_info(cls, pa_sink_info: PA_SINK_INFO):
         """Creates and returns a `SinkInfo` from a `PA_SINK_INFO` object."""
-        name = pa_sink_info.name.decode()
-        index = pa_sink_info.index
-        description = pa_sink_info.description.decode()
-        mute = bool(pa_sink_info.mute)
-        state = pa_sink_info.state
-
         channels = int(pa_sink_info.volume.channels)
-        values = list(pa_sink_info.volume.values[:channels])
+        cvolume = list(pa_sink_info.volume.values[:channels])
         base_volume = pa_sink_info.base_volume
 
-        for i, value in enumerate(values):
-            values[i] = value / base_volume
+        for i, volume in enumerate(cvolume):
+            cvolume[i] = volume / base_volume
 
-        volume = values
-
-        return SinkInfo(name, index, description, mute, volume, state)
+        return SinkInfo(
+            pa_sink_info.name.decode(),
+            pa_sink_info.index,
+            pa_sink_info.description.decode(),
+            bool(pa_sink_info.mute),
+            cvolume,
+            pa_sink_info.state,
+        )
 
 
 class ServerInfo():
