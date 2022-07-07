@@ -156,6 +156,29 @@ class PA_SINK_INFO(Structure):
     ]
 
 
+class PA_SINK_INPUT_INFO(Structure):
+    _fields_ = [
+        ("index", c_uint32),
+        ("name", c_char_p),
+        ("owner_module", c_uint32),
+        ("client", c_uint32),
+        ("sink", c_uint32),
+        ("sample_spec", PA_SAMPLE_SPEC),
+        ("channel_map", PA_CHANNEL_MAP),
+        ("volume", PA_CVOLUME),
+        ("buffer_usec", PA_USEC_T),
+        ("sink_usec", PA_USEC_T),
+        ("resample_method", c_char_p),
+        ("driver", c_char_p),
+        ("mute", c_int),
+        ("proplist", POINTER(PA_PROPLIST)),
+        ("corked", c_int),
+        ("has_volume", c_int),
+        ("volume_writable", c_int),
+        ("format", POINTER(PA_FORMAT_INFO)),
+    ]
+
+
 class PA_SERVER_INFO(Structure):
     _fields_ = [
         ("user_name", c_char_p),
@@ -172,6 +195,11 @@ class PA_SERVER_INFO(Structure):
 
 PA_SINK_INFO_CB_T = CFUNCTYPE(
     None, POINTER(PA_CONTEXT), POINTER(PA_SINK_INFO), c_int, c_void_p
+)
+
+
+PA_SINK_INPUT_INFO_CB_T = CFUNCTYPE(
+    None, POINTER(PA_CONTEXT), POINTER(PA_SINK_INPUT_INFO), c_int, c_void_p
 )
 
 
@@ -427,6 +455,13 @@ pa_context_get_sink_info_by_name = libpulse.pa_context_get_sink_info_by_name
 pa_context_get_sink_info_by_name.restype = POINTER(PA_OPERATION)
 pa_context_get_sink_info_by_name.argtypes = [
     POINTER(PA_CONTEXT), c_char_p, PA_SINK_INFO_CB_T, c_void_p
+]
+
+
+pa_context_get_sink_input_info_list = libpulse.pa_context_get_sink_input_info_list
+pa_context_get_sink_input_info_list.restype = POINTER(PA_OPERATION)
+pa_context_get_sink_input_info_list.argtypes = [
+    POINTER(PA_CONTEXT), PA_SINK_INPUT_INFO_CB_T, c_void_p
 ]
 
 
