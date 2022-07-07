@@ -478,13 +478,6 @@ pa_context_subscribe.argtypes = [
 ]
 
 
-pa_context_get_sink_info_by_index = libpulse.pa_context_get_sink_info_by_index
-pa_context_get_sink_info_by_index.restype = POINTER(PA_OPERATION)
-pa_context_get_sink_info_by_index.argtypes = [
-    POINTER(PA_CONTEXT), c_uint32, PA_SINK_INFO_CB_T, c_void_p
-]
-
-
 pa_context_get_server_info = libpulse.pa_context_get_server_info
 pa_context_get_server_info.restype = POINTER(PA_OPERATION)
 pa_context_get_server_info.argtypes = [
